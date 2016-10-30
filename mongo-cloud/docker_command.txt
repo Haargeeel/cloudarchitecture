@@ -1,0 +1,1 @@
+docker run -d --name mongotest -p 27017:27017 -v /Users/ray/mongo-cloud:/data/db mvertes/alpine-mongo
