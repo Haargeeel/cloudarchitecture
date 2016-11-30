@@ -5,8 +5,8 @@ services:
     build: ./server-cloud
     depends_on:
       - mongo1
-      - mongo2
-      - mongo3
+      # - mongo2
+      # - mongo3
     ports:
       - "3000:3000"
   mongo1:
@@ -16,17 +16,17 @@ services:
     volumes:
       - $PWD/mongo-cloud/mongo1:/data/db
     command: mongod --replSet rs0
-  mongo2:
-    image: mvertes/alpine-mongo
-    ports:
-      - "27018:27017"
-    volumes:
-      - $PWD/mongo-cloud/mongo2:/data/db
-    command: mongod --replSet rs0
-  mongo3:
-    image: mvertes/alpine-mongo
-    ports:
-      - "27019:27017"
-    volumes:
-      - $PWD/mongo-cloud/mongo3:/data/db
-    command: mongod --replSet rs0
+  # mongo2:
+    # image: mvertes/alpine-mongo
+    # ports:
+      # - "27018:27017"
+    # volumes:
+      # - $PWD/mongo-cloud/mongo2:/data/db
+    # command: mongod --replSet rs0
+  # mongo3:
+    # image: mvertes/alpine-mongo
+    # ports:
+      # - "27019:27017"
+    # volumes:
+      # - $PWD/mongo-cloud/mongo3:/data/db
+    # command: mongod --replSet rs0
