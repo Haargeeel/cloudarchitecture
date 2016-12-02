@@ -99,6 +99,14 @@ docker service create --name app \
 --network test \
 --network proxy \
 haargeeel/node-server:v0.0.2
+
+docker service create --name proxy \
+-p 80:80 -p 443:443 \
+--mount type=bind,source={letsencrypt .well-known position},target={letsencrypt .well-known position} \
+--mount type=bind,source=/etc/letsencrypt,target=/etc/letsencrypt \
+--network proxy \
+haargeeel/nginx:v0.0.4
 ```
+In this case we use our own nginx container. The only special thing about is its own `nginx.conf` and `sites-available` folder. This container is prepared to use a secure connections already.
 
 ## Kubernetes
