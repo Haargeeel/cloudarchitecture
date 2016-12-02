@@ -1,7 +1,6 @@
 # Cloudarchitecture Test
 
 ## Building your image
-
 You'll need to build your Docker images and upload it to a docker repository. You cannot build the images on the server ("cloud").
 Let's take the server-cloud app. The container will be ready for production so we need to build all necessary things before the actual image.
 ```bash
@@ -93,5 +92,13 @@ e6as45w157t7  app     4/5       haargeeel/node-server:v0.0.2
 Now we could visit any of the 3 servers on the port 3000 to see the test app.
 
 ### with proxy
+If we use a proxy/load balancer like nginx in front of the app we don't need to open the ports of the app. But we add it to another network, which is shared with the proxy service.
+```bash
+docker network create --driver overlay proxy
+docker service create --name app \
+--network test \
+--network proxy \
+haargeeel/node-server:v0.0.2
+```
 
 ## Kubernetes
