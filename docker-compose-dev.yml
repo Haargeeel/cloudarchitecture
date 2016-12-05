@@ -1,14 +1,6 @@
 version: '2'
 
 services:
-  app:
-    build: ./server-cloud
-    depends_on:
-      - mongo1
-      # - mongo2
-      # - mongo3
-    ports:
-      - "3000:3000"
   mongo1:
     image: mvertes/alpine-mongo
     ports:
