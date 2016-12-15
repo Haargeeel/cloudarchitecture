@@ -1,0 +1,34 @@
+version: '2'
+
+services:
+  mongo1:
+    image: mvertes/alpine-mongo
+    networks:
+      - backend
+    volumes:
+      - /data/db:/data/db
+  app:
+    image: haargeeel/node-server:v0.0.3
+    networks:
+      - backend
+      - proxy
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo1
+      - proxy
+  proxy:
+    image: haargeeel/nginx:v0.0.4
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - proxy
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+
+networks:
+  backend:
+    driver: overlay
+  proxy:
+    driver: overlay

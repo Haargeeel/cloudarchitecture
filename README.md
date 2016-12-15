@@ -109,4 +109,20 @@ haargeeel/nginx:v0.0.4
 ```
 In this case we use our own nginx container. The only special thing about is its own `nginx.conf` and `sites-available` folder. This container is prepared to use a secure connections already.
 
+Setting up a docker registry
+```bash
+docker run -d -p 3003:5000 --restart=always --name registry \
+  -v /etc/letsencrypt/live/domain.example.com:/certs \
+  -v /opt/docker-registry:/var/lib/registry \
+  -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+  -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+  registry:2
+
+# authentification is still missing
+
+# pushing to the registry
+docker tag {image} domain:3003/myimage
+docker push domain:3003/myimage
+```
+
 ## Kubernetes
