@@ -110,17 +110,33 @@ haargeeel/nginx:v0.0.4
 In this case we use our own nginx container. The only special thing about is its own `nginx.conf` and `sites-available` folder. This container is prepared to use a secure connections already.
 
 Setting up a docker registry
+For self hosting all our docker images we can use our own docker registry. Therefor we need a domain, tls certificate and a server.
 ```bash
+# some preparation for the secure connection to the server
+cd /etc/letsencrypt/live/domain.example.com/
+cp privkey.pem domain.key
+cat cert.pem chain.pem > domain.crt
+chmod 777 domain.crt
+chmod 777 domain.key
+
+# for authentication we make an auth file
+mkdir auth
+docker run --entrypoint htpasswd registry:2 -Bbn testuser testpassword > auth/htpasswd
+
 docker run -d -p 3003:5000 --restart=always --name registry \
+  -v `pwd`/auth:/auth \
+  -e "REGISTRY_AUTH=htpasswd" \
+  -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+  -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
   -v /etc/letsencrypt/live/domain.example.com:/certs \
   -v /opt/docker-registry:/var/lib/registry \
   -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
   -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
   registry:2
 
-# authentification is still missing
 
 # pushing to the registry
+docker login domain:3003 # testuser - testpassword
 docker tag {image} domain:3003/myimage
 docker push domain:3003/myimage
 ```
