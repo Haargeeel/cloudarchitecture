@@ -109,7 +109,7 @@ haargeeel/nginx:v0.0.4
 ```
 In this case we use our own nginx container. The only special thing about is its own `nginx.conf` and `sites-available` folder. This container is prepared to use a secure connections already.
 
-Setting up a docker registry
+### Setting up a docker registry
 For self hosting all our docker images we can use our own docker registry. Therefor we need a domain, tls certificate and a server.
 ```bash
 # some preparation for the secure connection to the server
@@ -142,3 +142,166 @@ docker push domain:3003/myimage
 ```
 
 ## Kubernetes
+
+### From scratch on Digital Ocean Servers
+
+On all the servers we need:
+- Etcd
+- Flannel
+- Docker
+- Kubernetes
+
+One of the servers has to be the master. It must be able to connect to the other
+servers via ssh.
+```bash
+# creating ssh key
+ssh-keygen -t rsa
+
+# ...
+# adding it to the authorized_keys on the other servers
+```
+
+We should add all the servers to their `/etc/host` files
+
+Now we install etcd. It needs the ports
+- 2379
+- 2380
+to be open.
+
+For etcd we need golang:
+```bash
+sudo apt-get install build-essential bison git
+# install go version manager
+bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
+# avoid restarting session
+source /root/.gvm/scripts/gvm
+# install go
+gvm install go1.7 -B
+# create kubernetes binary folder
+mkdir -p /opt/kubernetes && cd /opt/kubernetes
+
+gvm use go1.7
+export GOPATH=`pwd`
+```
+
+Now we can download etcd:
+```bash
+ETCD_VER=v3.0.15
+DOWNLOAD_URL=https://github.com/coreos/etcd/releases/download
+curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o etcd-${ETCD_VER}-linux-amd64.tar.gz
+mkdir bin
+tar xzvf etcd-${ETCD_VER}-linux-amd64.tar.gz -C bin --strip-components=1
+```
+
+Next is initialising etcd. We need to create a `/etc/systemd/system/etcd.service` file:
+```
+[Unit]
+Description=etcd key-value store
+Documentation=https://github.com/coreos/etcd
+[Service]
+Type=notify
+Environment=ETCD_DATA_DIR=/var/lib/etcd
+ExecStart=/opt/kubernetes/bin/etcd -name {SERVER_NAME} \
+  -advertise-client-urls=http://{SERVER_IP}:2379 \
+  -listen-client-urls=http://{SERVER_IP}:2379 \
+  -listen-peer-urls=http://{SERVER_IP}:2380 \
+  -initial-advertise-peer-urls=http://{SERVER_IP}:2380 \
+  -initial-cluster={SERVER_NAME_1}=http://{SERVER_IP_1}:2380,{SERVER_NAME_2}=http://{SERVER_IP_2}:2380,{SERVER_NAME_3}=http://{SERVER_IP_3}:2380 \
+  -initial-cluster-state=new \
+  -initial-cluster-token=catsonthemoon
+Restart=always
+RestartSec=10s
+LimitNOFILE=65535
+[Install]
+WantedBy=multi-user.target
+```
+
+We do this on each server. In this example we have 3 servers.
+
+```bash
+systemctl daemon-reload
+systemctl start etcd
+systemctl enable etcd
+```
+
+After doing this on all servers we can do a healthy check:
+```bash
+$GOPATH/bin/etcdctl -endpoints=http://{SERVER_IP}:2379 cluster-health
+```
+
+Next we look at flannel.
+```bash
+FLANNEL_VERSION=v0.6.2
+curl -L https://github.com/coreos/flannel/releases/download/${FLANNEL_VERSION}/flannel-${FLANNEL_VERSION}-linux-amd64.tar.gz -o flannel-${FLANNEL_VERSION}-linux-amd64.tar.gz
+tar zxvf flannel-${FLANNEL_VERSION}-linux-amd64.tar.gz -C bin
+# create flannel directory for config
+mkdir -p /opt/kubernetes/flannel
+```
+_config.json_
+```
+{
+  "Network": "172.17.0.0/16",
+  "SubnetLen": 24,
+    "Backend": {
+    "Type": "vxlan",
+    "VNI": 1,
+    "Port": 8472
+  }
+}
+```
+Use the config file in the cluster:
+```bash
+$GOPATH/bin/etcdctl -endpoints=http://{SERVER_IP}:2379/ set {CLUSTER_NAME}/network/config < config.json
+```
+For flannel we also add a service file
+_/etc/systemd/system/flannel.service_:
+```
+[Unit]
+Description=flanneld
+After=etcd.service
+[Install]
+WantedBy=multi-user.target
+[Service]
+ExecStart=/opt/kubernetes/bin/flanneld \
+ -public-ip={PUBLIC_IP} \
+ -ip-masq=true \
+ -etcd-endpoints=http://{SERVER_IP_1}:2379,http://{SERVER_IP_2}:2379,http://{SERVER_IP_3}:2379 \
+ -etcd-prefix="{CLUSTER_NAME}/network"
+Restart=always
+RestartSec=10s
+LimitNOFILE=65535
+```
+
+```bash
+systemctl daemon-reload
+systemctl start flannel
+systemctl enable flannel
+```
+With _ifconfig_ we can check the ip address and try to access it from another server.
+
+Docker
+
+We change 
+_/etc/systemd/system/docker.service_:
+```
+[Unit]
+Description=Docker with flannel
+Requires=flannel.service
+After=flannel.service
+[Service]
+EnvironmentFile=/run/flannel/subnet.env
+ExecStart=/usr/bin/docker daemon --bip=${FLANNEL_SUBNET} --mtu=${FLANNEL_MTU} -s overlay
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1048576
+LimitNPROC=1048576
+LimitCORE=infinity
+Delegate=yes
+MountFlags=slave
+[Install]
+WantedBy=multi-user.target
+```
+
+### Using Google Cloud
+
+lala
